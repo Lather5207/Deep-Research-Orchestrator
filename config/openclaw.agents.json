@@ -1,0 +1,25 @@
+{
+  "_comment": "Add these entries to your openclaw.json under agents.list. Adjust model names to match your provider.",
+  "agents": {
+    "list": [
+      {
+        "id": "deep-researcher",
+        "workspace": "~/.openclaw/workspace-deep-researcher",
+        "model": "zai/glm-5.1",
+        "skills": ["deep-research", "notion", "tavily"],
+        "tools": {
+          "allow": ["web_search", "web_fetch", "image", "exec", "read", "write", "edit"]
+        }
+      },
+      {
+        "id": "sub-researcher",
+        "workspace": "~/.openclaw/workspace-sub-researcher",
+        "model": "zai/glm-4.7",
+        "skills": [],
+        "tools": {
+          "allow": ["web_search", "web_fetch", "image"]
+        }
+      }
+    ]
+  }
+}

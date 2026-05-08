@@ -1,0 +1,128 @@
+# OpenClaw Agent Package Manifest
+# This is a proposed format for sharing multi-agent orchestrations.
+# Today: used as documentation + setup guide
+# Future: could be read by `openclaw agents import` or ClawHub
+
+name: deep-research-orchestrator
+version: 3.0.0
+description: >
+  Multi-agent deep research system. Decomposes complex research questions into
+  focused subtopics, delegates to scout agents, iterates on gaps, and produces
+  comprehensive published reports with citations.
+author: Deep Research Orchestrator Contributors
+license: MIT
+tags: [research, multi-agent, orchestration, scouts, notion, deep-research]
+
+# Minimum OpenClaw version
+openclawVersion: ">=2026.5"
+
+# Required skills (install via ClawHub or plugin-skills)
+skills:
+  - deep-research   # Web research skill (bundled)
+  - notion          # Notion API skill
+  - tavily          # Web search provider skill
+
+# Required environment / secrets (user must provide)
+requires:
+  env:
+    - NOTION_API_KEY           # Notion integration API key
+    - description: "Model provider API key (provider-specific)"
+      required: true
+  services:
+    - "LLM provider with model routing support"
+    - "Notion workspace with connected integration"
+
+# Agent definitions
+agents:
+  orchestrator:
+    id: deep-researcher
+    name: Deep Diver
+    emoji: 🔬
+    description: >
+      Research orchestrator. Plans, decomposes, coordinates scouts,
+      synthesizes findings, and publishes reports.
+    model:
+      recommended: "your-provider/your-strongest-model"
+      tested: "zai/glm-5.1"
+      role: "Strategic planning, decomposition, synthesis"
+    tools:
+      allow: [web_search, web_fetch, image, exec, read, write, edit]
+    skills: [deep-research, notion, tavily]
+    workspace: ./agents/orchestrator/
+
+  scout:
+    id: sub-researcher
+    name: Scout
+    emoji: 🐦
+    description: >
+      Focused research worker. Searches web on a single topic,
+      self-summarizes findings, returns structured brief with sources.
+    model:
+      recommended: "your-provider/your-cheapest-capable-model"
+      tested: "zai/glm-4.7"
+      role: "Focused search + fetch + summarize"
+    tools:
+      allow: [web_search, web_fetch, image]
+    skills: []
+    workspace: ./agents/scout/
+
+# How the orchestrator spawns scouts (CLI pattern)
+spawning:
+  method: cli
+  command: >
+    openclaw agent --local --agent sub-researcher
+    --model "your-provider/your-cheapest-capable-model"
+    --message "RESEARCH BRIEF: ..."
+    --timeout 300 --session-id "$(uuidgen)"
+  sequential: true
+  note: "Sequential to avoid API rate limits. Switch to parallel if your provider supports it."
+
+# The 3-phase workflow
+workflow:
+  phases:
+    - name: SCOPE
+      description: "Read request, assess complexity, apply effort scaling rules, decompose into subtopics, write structured research briefs"
+      turns: 1
+    - name: RESEARCH
+      description: "Spawn scouts sequentially, collect results, gap review, iterate (max 2 gap rounds)"
+      turns: "variable (1 scout per subtopic + gap scouts)"
+    - name: WRITE
+      description: "Verify findings, synthesize in one shot, publish to Notion, return TLDR"
+      turns: 2-3
+
+# Resource limits (hardcoded in AGENTS.md)
+limits:
+  maxScouts: 15
+  maxSearchesPerScout: 8
+  maxFetchesPerScout: 12
+  maxGapRounds: 2
+  maxWallClockMinutes: 30
+  maxReportSizeKB: 30
+
+# Cost estimate (based on ZAI pricing)
+costEstimate:
+  perRun:
+    orchestratorTokens: "~15K input + ~30K output"
+    scoutTokens: "~200K total across 10 scouts"
+    total: "~255K tokens"
+    usd: "~$0.21 (ZAI pricing)"
+
+# Files included in this package
+files:
+  workspace:
+    orchestrator:
+      - AGENTS.md    # 3-phase workflow with hard limits, effort scaling, structured briefs
+      - SOUL.md      # Personality: focused, methodical, thorough
+      - IDENTITY.md  # Name, emoji, role
+      - TOOLS.md     # Tool-specific notes (Notion config, etc.)
+    scout:
+      - AGENTS.md    # Research instructions, self-summarization, start-wide-then-narrow
+      - SOUL.md      # Personality: efficient, thorough, concise
+      - IDENTITY.md  # Name, emoji, role
+      - TOOLS.md     # Tool notes
+      - USER.md      # Placeholder (customize per user)
+  config:
+    - openclaw.agents.json  # Agent config entries to merge into openclaw.json
+  scripts:
+    - setup.sh              # One-command installation
+    - publish-to-notion.py  # Reusable Notion publisher helper
