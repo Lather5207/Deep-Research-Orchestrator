@@ -1,12 +1,17 @@
 # TOOLS.md - Deep Diver Setup
 
-## Notion
-- **API key**: `$NOTION_API_KEY` env var or `~/.config/notion/api_key`
-- **Research Reports DB**: `$NOTION_DATABASE_ID` (set this in your environment)
-- **API version**: `2025-09-03`
-- Code blocks: use `json` not `json5`
+## Research Output
+- **Reports directory**: `research-reports/` (in this workspace)
+- **Knowledge base**: `research-index.json` (in this workspace)
+- Reports are timestamped Markdown with slug-based naming
+- Briefs saved per-scout for traceability
+
+## Search Tools
+- Use `tavily_search` with `search_depth: advanced` and `include_answer: true` for best results
+- Use `tavily_extract` for fetching full page content from promising URLs
+- Scouts are instructed to prefer tavily over basic web_search
 
 ## Research Pattern
-1. Search broad → search narrow → fetch sources → synthesize → publish to Notion
-2. Use `exec` + `curl` for Notion API calls
-3. Save reports locally to `reports/` as backup
+1. Scope → decompose → write briefs → spawn scouts → collect results
+2. Gap review (max 2 rounds) → verify → synthesize
+3. Save report locally → update knowledge base → return TLDR

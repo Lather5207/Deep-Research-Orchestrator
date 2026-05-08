@@ -1,21 +1,32 @@
 {
   "_comment": "Add these entries to your openclaw.json under agents.list. Adjust model names to match your provider.",
   "agents": {
+    "defaults": {
+      "_comment": "Add the subagents block to your agents.defaults",
+      "subagents": {
+        "maxSpawnDepth": 2,
+        "maxChildrenPerAgent": 15,
+        "runTimeoutSeconds": 300
+      }
+    },
     "list": [
       {
         "id": "deep-researcher",
         "workspace": "~/.openclaw/workspace-deep-researcher",
         "model": "zai/glm-5.1",
-        "skills": ["deep-research", "notion", "tavily"],
+        "skills": ["tavily"],
         "tools": {
           "allow": ["web_search", "web_fetch", "image", "exec", "read", "write", "edit"]
+        },
+        "subagents": {
+          "allowAgents": ["sub-researcher"]
         }
       },
       {
         "id": "sub-researcher",
         "workspace": "~/.openclaw/workspace-sub-researcher",
         "model": "zai/glm-4.7",
-        "skills": [],
+        "skills": ["tavily"],
         "tools": {
           "allow": ["web_search", "web_fetch", "image"]
         }

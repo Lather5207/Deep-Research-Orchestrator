@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Deep Research Orchestrator — Setup Script
-# Reads openclaw-package.yaml to install the multi-agent system
 #
 # Usage:
 #   ./setup.sh                              # Interactive (prompts for models)
@@ -32,12 +31,17 @@ echo "Scout:        $SCOUT_MODEL"
 echo "State dir:    $STATE_DIR"
 echo ""
 
-# ── 1. Create workspace directories ──
-echo "📁 Creating workspace directories..."
-mkdir -p "$STATE_DIR/workspace-deep-researcher"
-mkdir -p "$STATE_DIR/workspace-sub-researcher"
-mkdir -p "$STATE_DIR/workspace-deep-researcher/scripts"
-mkdir -p "$STATE_DIR/workspace-deep-researcher/reports"
+# ── 1. Create agents ──
+echo "🤖 Creating agents..."
+openclaw agents add deep-researcher \
+  --model "$ORCHESTRATOR_MODEL" \
+  --workspace "$STATE_DIR/workspace-deep-researcher" \
+  --non-interactive
+
+openclaw agents add sub-researcher \
+  --model "$SCOUT_MODEL" \
+  --workspace "$STATE_DIR/workspace-sub-researcher" \
+  --non-interactive
 
 # ── 2. Copy workspace files ──
 echo "📝 Installing orchestrator workspace..."
@@ -46,49 +50,10 @@ cp "$SCRIPT_DIR/agents/orchestrator/workspace/"*.md "$STATE_DIR/workspace-deep-r
 echo "📝 Installing scout workspace..."
 cp "$SCRIPT_DIR/agents/scout/workspace/"*.md "$STATE_DIR/workspace-sub-researcher/"
 
-echo "📝 Installing helper scripts..."
-cp "$SCRIPT_DIR/scripts/publish-to-notion.py" "$STATE_DIR/workspace-deep-researcher/scripts/"
+echo "📝 Creating output directories..."
+mkdir -p "$STATE_DIR/workspace-deep-researcher/research-reports"
 
-# ── 3. Generate agent config ──
-echo "⚙️  Generating agent config..."
-cat > "$SCRIPT_DIR/config/generated.agents.json" << EOF
-{
-  "_comment": "Add these entries to your openclaw.json under agents.list",
-  "agents": {
-    "list": [
-      {
-        "id": "deep-researcher",
-        "workspace": "$STATE_DIR/workspace-deep-researcher",
-        "model": "$ORCHESTRATOR_MODEL",
-        "skills": ["deep-research", "notion", "tavily"],
-        "tools": {
-          "allow": ["web_search", "web_fetch", "image", "exec", "read", "write", "edit"]
-        }
-      },
-      {
-        "id": "sub-researcher",
-        "workspace": "$STATE_DIR/workspace-sub-researcher",
-        "model": "$SCOUT_MODEL",
-        "skills": [],
-        "tools": {
-          "allow": ["web_search", "web_fetch", "image"]
-        }
-      }
-    ]
-  }
-}
-EOF
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "📋 Agent config generated at config/generated.agents.json"
-echo ""
-echo "Merge this into your openclaw.json:"
-echo ""
-cat "$SCRIPT_DIR/config/generated.agents.json"
-echo ""
-
-# ── 4. Auth profiles ──
+# ── 3. Auth profiles ──
 if [ -f "$STATE_DIR/agents/main/agent/auth-profiles.json" ]; then
   echo "🔑 Copying auth profiles from main agent..."
   mkdir -p "$STATE_DIR/agents/deep-researcher/agent"
@@ -107,10 +72,57 @@ else
   echo "      \$STATE_DIR/agents/sub-researcher/agent/"
 fi
 
-# ── 5. Verify skills ──
+# ── 4. Generate config snippet ──
+echo "⚙️  Generating config snippet..."
+mkdir -p "$SCRIPT_DIR/config"
+cat > "$SCRIPT_DIR/config/generated.agents.json" << EOF
+{
+  "_comment": "Merge these into your openclaw.json",
+  "agents": {
+    "defaults": {
+      "subagents": {
+        "maxSpawnDepth": 2,
+        "maxChildrenPerAgent": 15,
+        "runTimeoutSeconds": 300
+      }
+    },
+    "list": [
+      {
+        "id": "deep-researcher",
+        "workspace": "$STATE_DIR/workspace-deep-researcher",
+        "model": "$ORCHESTRATOR_MODEL",
+        "skills": ["tavily"],
+        "tools": {
+          "allow": ["web_search", "web_fetch", "image", "exec", "read", "write", "edit"]
+        },
+        "subagents": {
+          "allowAgents": ["sub-researcher"]
+        }
+      },
+      {
+        "id": "sub-researcher",
+        "workspace": "$STATE_DIR/workspace-sub-researcher",
+        "model": "$SCOUT_MODEL",
+        "skills": ["tavily"],
+        "tools": {
+          "allow": ["web_search", "web_fetch", "image"]
+        }
+      }
+    ]
+  }
+}
+EOF
+
 echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📋 Config snippet generated at config/generated.agents.json"
+echo ""
+echo "Merge this into your openclaw.json, then restart the gateway."
+echo ""
+
+# ── 5. Verify skills ──
 echo "🔍 Checking required skills..."
-for skill in deep-research notion tavily; do
+for skill in tavily; do
   if [ -f "$STATE_DIR/plugin-skills/$skill/SKILL.md" ] || \
      [ -f "$HOME/.npm-global/lib/node_modules/openclaw/skills/$skill/SKILL.md" ]; then
     echo "   ✅ $skill"
@@ -123,10 +135,7 @@ echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ Setup complete!"
 echo ""
-echo "🧪 Test with:"
-echo "   openclaw agent --local --agent deep-researcher \\"
-echo "     --message 'Research [your topic] and publish to Notion' \\"
-echo "     --timeout 1800"
+echo "🧪 To trigger research, have your main agent spawn the deep-researcher:"
+echo "   sessions_spawn({ agentId: 'deep-researcher', task: 'Research [topic]' })"
 echo ""
 echo "📖 Docs: cat $SCRIPT_DIR/README.md"
-echo "📦 Manifest: cat $SCRIPT_DIR/openclaw-package.yaml"
